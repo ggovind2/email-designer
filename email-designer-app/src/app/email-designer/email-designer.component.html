@@ -1,0 +1,413 @@
+<div class="designer-layout">
+  <!-- Designer Area -->
+  <div class="designer-panel" [class.w-100]="!showPreview" [class.w-50]="showPreview">
+    <div class="panel-header">
+      <h4>Email Designer Canvas</h4>
+      <button class="btn btn-primary" (click)="togglePreview()">
+        <i class="fas" [class.fa-eye]="!showPreview" [class.fa-eye-slash]="showPreview"></i>
+        {{showPreview ? 'Hide Preview' : 'Show Preview'}}
+      </button>
+    </div>
+    <div class="border rounded p-3" style="min-height: 400px;">
+      <ng-container *ngIf="contentBlocks.length; else emptyState">
+        <div cdkDropList (cdkDropListDropped)="drop($event)">
+          <div *ngFor="let block of contentBlocks; let i = index" cdkDrag 
+               class="mb-3 position-relative" 
+               [class.selected-block]="selectedBlock === block"
+               (click)="selectBlock(block)"
+               [style]="getBlockStyles(block)">
+            <!-- Position Label and Drag Handle -->
+            <div class="position-absolute d-flex align-items-center gap-2" style="left: 0; top: 0; z-index: 2;">
+              <div class="drag-handle" cdkDragHandle>
+                <i class="fas fa-grip-vertical"></i>
+              </div>
+              <div class="bg-light-subtle" style="padding: 2px 6px; border-radius: 0 0 4px 0; font-size: 0.75rem;">
+                Row {{i + 1}}
+              </div>
+            </div>
+
+            <!-- Block Controls -->
+            <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+              <button class="btn btn-sm btn-light border" (click)="moveBlockUp(i)" [class.invisible]="i === 0" title="Move Up">
+                <i class="fa fa-arrow-up"></i>
+              </button>
+              <button class="btn btn-sm btn-light border" (click)="moveBlockDown(i)" [class.invisible]="i === contentBlocks.length - 1" title="Move Down">
+                <i class="fa fa-arrow-down"></i>
+              </button>
+              <button class="btn btn-sm btn-danger border" (click)="removeBlock(i)" title="Remove">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+            
+            <!-- Block Content -->
+            <div class="mt-4">
+              <ng-container [ngSwitch]="block.type">
+                <!-- Text Block -->
+                <ng-container *ngSwitchCase="'text'">
+                  <quill-editor [(ngModel)]="block.data" (ngModelChange)="onTextChange(i, $event)" [style]="{height: '120px'}"></quill-editor>
+                </ng-container>
+
+                <!-- Image Block -->
+                <ng-container *ngSwitchCase="'image'">
+                  <input type="file" accept="image/*" (change)="onImageChange(i, $event)" />
+                  <img *ngIf="block.data" [src]="block.data" alt="Image" class="img-fluid mt-2" style="max-height:150px;" />
+                </ng-container>
+
+                <!-- Video Block -->
+                <ng-container *ngSwitchCase="'video'">
+                  <input type="text" class="form-control" placeholder="Paste video URL" [(ngModel)]="block.data" (ngModelChange)="onVideoChange(i, $event)" />
+                  <div *ngIf="block.data" class="mt-2">
+                    <iframe [src]="block.data | safeUrl" width="320" height="180" frameborder="0" allowfullscreen></iframe>
+                  </div>
+                </ng-container>
+
+                <!-- Single Column Block -->
+                <ng-container *ngSwitchCase="'single-column'">
+                  <div class="border p-2">
+                    <div cdkDropList (cdkDropListDropped)="drop($event)" class="nested-drop-list" [attr.data-block-index]="i">
+                      <div *ngFor="let nested of block.data; let ni = index" 
+                           class="mb-2 position-relative" 
+                           cdkDrag
+                           [class.selected-block]="selectedBlock === nested"
+                           (click)="selectBlock(nested); $event.stopPropagation()"
+                           [style]="getBlockStyles(nested)">
+                        <!-- Position Label and Drag Handle -->
+                        <div class="position-absolute d-flex align-items-center gap-2" style="left: 0; top: 0; z-index: 2;">
+                          <div class="drag-handle" cdkDragHandle>
+                            <i class="fas fa-grip-vertical"></i>
+                          </div>
+                          <div class="bg-light-subtle" style="padding: 2px 6px; border-radius: 0 0 4px 0; font-size: 0.75rem;">
+                            Row {{i + 1}}.{{ni + 1}}
+                          </div>
+                        </div>
+
+                        <!-- Nested Block Controls -->
+                        <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                          <button class="btn btn-sm btn-light border" (click)="moveNestedBlockUp(ni, i, block.data)" [class.invisible]="ni === 0" title="Move Up">
+                            <i class="fa fa-arrow-up"></i>
+                          </button>
+                          <button class="btn btn-sm btn-light border" (click)="moveNestedBlockDown(ni, i, block.data)" [class.invisible]="ni === block.data.length - 1" title="Move Down">
+                            <i class="fa fa-arrow-down"></i>
+                          </button>
+                          <button class="btn btn-sm btn-danger border" (click)="removeNestedBlock(ni, i, block.data)" title="Remove">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        </div>
+                        
+                        <!-- Block Content -->
+                        <div class="mt-4">
+                          <ng-container [ngSwitch]="nested.type">
+                            <!-- Text Block -->
+                            <ng-container *ngSwitchCase="'text'">
+                              <quill-editor [(ngModel)]="nested.data" [style]="{height: '80px'}"></quill-editor>
+                            </ng-container>
+
+                            <!-- Image Block -->
+                            <ng-container *ngSwitchCase="'image'">
+                              <input type="file" accept="image/*" (change)="onImageChange(i, $event)" />
+                              <img *ngIf="nested.data" [src]="nested.data" alt="Image" class="img-fluid mt-2" style="max-height:100px;" />
+                            </ng-container>
+
+                            <!-- Video Block -->
+                            <ng-container *ngSwitchCase="'video'">
+                              <input type="text" class="form-control" placeholder="Paste video URL" [(ngModel)]="nested.data" />
+                              <div *ngIf="nested.data" class="mt-2">
+                                <iframe [src]="nested.data | safeUrl" width="200" height="100" frameborder="0" allowfullscreen></iframe>
+                              </div>
+                            </ng-container>
+
+                            <!-- Single Column Block -->
+                            <ng-container *ngSwitchCase="'single-column'">
+                              <ng-container *ngTemplateOutlet="singleColumnRecursive; context: {sub: nested, parentIndex: i, parentSubIdx: ni}"></ng-container>
+                            </ng-container>
+
+                            <!-- Multi Column Block -->
+                            <ng-container *ngSwitchCase="'multi-column'">
+                              <ng-container *ngTemplateOutlet="multiColumnRecursive; context: {sub: nested, parentIndex: i, parentSubIdx: ni}"></ng-container>
+                            </ng-container>
+                          </ng-container>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Add Nested Block Button -->
+                    <div class="dropdown mt-2">
+                      <button class="btn btn-xs btn-outline-primary dropdown-toggle py-0 px-1" style="font-size: 0.8rem; height: 1.8rem; line-height: 1.2rem;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa fa-plus"></i> Add Nested Block
+                      </button>
+                      <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" (click)="addNestedBlock(i, undefined, 'text')">Add Text</a></li>
+                        <li><a class="dropdown-item" (click)="addNestedBlock(i, undefined, 'image')">Add Image</a></li>
+                        <li><a class="dropdown-item" (click)="addNestedBlock(i, undefined, 'video')">Add Video</a></li>
+                        <li><a class="dropdown-item" (click)="addNestedBlock(i, undefined, 'single-column')">Add Single Column</a></li>
+                        <li><a class="dropdown-item" (click)="addNestedBlock(i, undefined, 'multi-column')">Add Multi Column</a></li>
+                      </ul>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <!-- Multi Column Block -->
+                <ng-container *ngSwitchCase="'multi-column'">
+                  <div class="row">
+                    <div class="col border p-2" *ngFor="let col of block.data; let ci = index">
+                      <div cdkDropList (cdkDropListDropped)="drop($event)" class="nested-drop-list" [attr.data-block-index]="i" [attr.data-column-index]="ci">
+                        <!-- Column Label -->
+                        <div class="mb-2 text-muted" style="font-size: 0.75rem;">Column {{ci + 1}}</div>
+                        
+                        <div *ngFor="let nested of col; let ni = index" 
+                             class="mb-2 position-relative" 
+                             cdkDrag
+                             [class.selected-block]="selectedBlock === nested"
+                             (click)="selectBlock(nested); $event.stopPropagation()"
+                             [style]="getBlockStyles(nested)">
+                          <!-- Position Label and Drag Handle -->
+                          <div class="position-absolute d-flex align-items-center gap-2" style="left: 0; top: 0; z-index: 2;">
+                            <div class="drag-handle" cdkDragHandle>
+                              <i class="fas fa-grip-vertical"></i>
+                              <span class="ms-1" style="font-size: 0.75rem;">Drag</span>
+                            </div>
+                            <div class="bg-light-subtle" style="padding: 2px 6px; border-radius: 0 0 4px 0; font-size: 0.75rem;">
+                              Row {{i + 1}}.{{ci + 1}}.{{ni + 1}}
+                            </div>
+                          </div>
+
+                          <!-- Nested Block Controls -->
+                          <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                            <button class="btn btn-sm btn-light border" (click)="moveNestedBlockUp(ni, i, col)" [class.invisible]="ni === 0" title="Move Up">
+                              <i class="fa fa-arrow-up"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light border" (click)="moveNestedBlockDown(ni, i, col)" [class.invisible]="ni === col.length - 1" title="Move Down">
+                              <i class="fa fa-arrow-down"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger border" (click)="removeNestedBlock(ni, i, col)" title="Remove">
+                              <i class="fa fa-trash"></i>
+                            </button>
+                          </div>
+
+                          <!-- Block Content -->
+                          <div class="mt-4">
+                            <ng-container [ngSwitch]="nested.type">
+                              <ng-container *ngSwitchCase="'text'">
+                                <quill-editor [(ngModel)]="nested.data" [style]="{height: '80px'}"></quill-editor>
+                              </ng-container>
+                              <ng-container *ngSwitchCase="'image'">
+                                <input type="file" accept="image/*" (change)="onImageChange(i, $event)" />
+                                <img *ngIf="nested.data" [src]="nested.data" alt="Image" class="img-fluid mt-2" style="max-height:100px;" />
+                              </ng-container>
+                              <ng-container *ngSwitchCase="'video'">
+                                <input type="text" class="form-control" placeholder="Paste video URL" [(ngModel)]="nested.data" />
+                                <div *ngIf="nested.data" class="mt-2">
+                                  <iframe [src]="nested.data | safeUrl" width="200" height="100" frameborder="0" allowfullscreen></iframe>
+                                </div>
+                              </ng-container>
+                              <ng-container *ngSwitchCase="'single-column'">
+                                <ng-container *ngTemplateOutlet="singleColumnRecursive; context: {sub: nested, parentIndex: i, parentSubIdx: ni}"></ng-container>
+                              </ng-container>
+                              <ng-container *ngSwitchCase="'multi-column'">
+                                <ng-container *ngTemplateOutlet="multiColumnRecursive; context: {sub: nested, parentIndex: i, parentSubIdx: ni}"></ng-container>
+                              </ng-container>
+                            </ng-container>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="dropdown mt-2">
+                        <button class="btn btn-xs btn-outline-primary dropdown-toggle py-0 px-1" style="font-size: 0.8rem; height: 1.8rem; line-height: 1.2rem;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                          <i class="fa fa-plus"></i> Add Nested Block
+                        </button>
+                        <ul class="dropdown-menu">
+                          <li><a class="dropdown-item" (click)="addNestedBlock(i, ci, 'text')">Add Text</a></li>
+                          <li><a class="dropdown-item" (click)="addNestedBlock(i, ci, 'image')">Add Image</a></li>
+                          <li><a class="dropdown-item" (click)="addNestedBlock(i, ci, 'video')">Add Video</a></li>
+                          <li><a class="dropdown-item" (click)="addNestedBlock(i, ci, 'single-column')">Add Single Column</a></li>
+                          <li><a class="dropdown-item" (click)="addNestedBlock(i, ci, 'multi-column')">Add Multi Column</a></li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+      
+      <ng-template #emptyState>
+        <div class="text-start">
+          <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa fa-plus"></i> Add Block
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" (click)="addBlock('text')">Add Text</a></li>
+              <li><a class="dropdown-item" (click)="addBlock('image')">Add Image</a></li>
+              <li><a class="dropdown-item" (click)="addBlock('video')">Add Video</a></li>
+              <li><a class="dropdown-item" (click)="addBlock('single-column')">Add Single Column</a></li>
+              <li><a class="dropdown-item" (click)="addBlock('multi-column')">Add Multi Column</a></li>
+            </ul>
+          </div>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+  <!-- Preview Area -->
+  <div class="preview-panel w-50" *ngIf="showPreview">
+    <div class="panel-header">
+      <h4>Preview</h4>
+    </div>
+    <div class="canvas-container preview-content" [innerHTML]="generatePreview()"></div>
+  </div>
+</div>
+
+<!-- Recursive Templates -->
+<ng-template #singleColumnRecursive let-sub="sub" let-parentIndex="parentIndex" let-parentSubIdx="parentSubIdx">
+  <div class="border p-2 bg-light-subtle">
+    <div cdkDropList (cdkDropListDropped)="drop($event)" class="nested-drop-list" [attr.data-block-index]="parentIndex">
+      <div *ngFor="let subsub of sub.data; let subsubIdx = index" 
+           class="mb-2 position-relative" 
+           cdkDrag
+           [class.selected-block]="selectedBlock === subsub"
+           (click)="selectBlock(subsub); $event.stopPropagation()"
+           [style]="getBlockStyles(subsub)">
+        <!-- Position Label and Drag Handle -->
+        <div class="position-absolute d-flex align-items-center gap-2" style="left: 0; top: 0; z-index: 2;">
+          <div class="drag-handle" cdkDragHandle>
+            <i class="fas fa-grip-vertical"></i>
+          </div>
+          <div class="bg-light-subtle" style="padding: 2px 6px; border-radius: 0 0 4px 0; font-size: 0.75rem;">
+            Row {{parentIndex + 1}}.{{parentSubIdx + 1}}.{{subsubIdx + 1}}
+          </div>
+        </div>
+
+        <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+          <button class="btn btn-sm btn-light border" (click)="moveNestedBlockUp(subsubIdx, parentSubIdx, sub.data)" [class.invisible]="subsubIdx === 0" title="Move Up">
+            <i class="fa fa-arrow-up"></i>
+          </button>
+          <button class="btn btn-sm btn-light border" (click)="moveNestedBlockDown(subsubIdx, parentSubIdx, sub.data)" [class.invisible]="subsubIdx === sub.data.length - 1" title="Move Down">
+            <i class="fa fa-arrow-down"></i>
+          </button>
+          <button class="btn btn-sm btn-danger border" (click)="removeNestedBlock(subsubIdx, parentSubIdx, sub.data)" title="Remove">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+
+        <!-- Block Content -->
+        <div class="mt-4">
+          <ng-container [ngSwitch]="subsub.type">
+            <ng-container *ngSwitchCase="'text'">
+              <quill-editor [(ngModel)]="subsub.data" [style]="{height: '60px'}"></quill-editor>
+            </ng-container>
+            <ng-container *ngSwitchCase="'image'">
+              <input type="file" accept="image/*" (change)="onImageChange(parentIndex, $event)" />
+              <img *ngIf="subsub.data" [src]="subsub.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+            </ng-container>
+            <ng-container *ngSwitchCase="'video'">
+              <input type="text" class="form-control" placeholder="Paste video URL" [(ngModel)]="subsub.data" />
+              <div *ngIf="subsub.data" class="mt-2">
+                <iframe [src]="subsub.data | safeUrl" width="160" height="80" frameborder="0" allowfullscreen></iframe>
+              </div>
+            </ng-container>
+            <ng-container *ngSwitchCase="'single-column'">
+              <ng-container *ngTemplateOutlet="singleColumnRecursive; context: {sub: subsub, parentIndex: parentIndex, parentSubIdx: parentSubIdx}"></ng-container>
+            </ng-container>
+            <ng-container *ngSwitchCase="'multi-column'">
+              <ng-container *ngTemplateOutlet="multiColumnRecursive; context: {sub: subsub, parentIndex: parentIndex, parentSubIdx: parentSubIdx}"></ng-container>
+            </ng-container>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+    <div class="dropdown mt-2">
+      <button class="btn btn-xs btn-outline-primary dropdown-toggle py-0 px-1" style="font-size: 0.8rem; height: 1.8rem; line-height: 1.2rem;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fa fa-plus"></i> Add Nested Block
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, undefined, 'text', parentSubIdx)">Add Text</a></li>
+        <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, undefined, 'image', parentSubIdx)">Add Image</a></li>
+        <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, undefined, 'video', parentSubIdx)">Add Video</a></li>
+        <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, undefined, 'single-column', parentSubIdx)">Add Single Column</a></li>
+        <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, undefined, 'multi-column', parentSubIdx)">Add Multi Column</a></li>
+      </ul>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #multiColumnRecursive let-sub="sub" let-parentIndex="parentIndex" let-parentSubIdx="parentSubIdx">
+  <div class="row bg-light-subtle">
+    <div class="col border p-2" *ngFor="let col of sub.data; let ci2 = index">
+      <!-- Column Label -->
+      <div class="mb-2 text-muted" style="font-size: 0.75rem;">Column {{ci2 + 1}}</div>
+      <div cdkDropList (cdkDropListDropped)="drop($event)" class="nested-drop-list" [attr.data-block-index]="parentIndex" [attr.data-column-index]="ci2">        <div *ngFor="let subsub of col; let subsubIdx = index" 
+             class="mb-2 position-relative" 
+             cdkDrag
+             [class.selected-block]="selectedBlock === subsub"
+             (click)="selectBlock(subsub); $event.stopPropagation()"
+             [style]="getBlockStyles(subsub)">
+          <!-- Position Label and Drag Handle -->
+          <div class="position-absolute d-flex align-items-center" style="left: 0; top: 0; z-index: 2;">
+            <i class="fa fa-grip-vertical drag-handle" cdkDragHandle></i>
+            <div class="bg-light-subtle" style="padding: 2px 6px; border-radius: 0 0 4px 0; font-size: 0.75rem;">
+              Row {{parentIndex + 1}}.{{parentSubIdx + 1}}.{{subsubIdx + 1}}
+            </div>
+          </div>
+
+          <!-- Block Controls -->
+          <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+            <button class="btn btn-sm btn-light border" (click)="moveNestedBlockUp(subsubIdx, ci2, col)" [class.invisible]="subsubIdx === 0" title="Move Up">
+              <i class="fa fa-arrow-up"></i>
+            </button>
+            <button class="btn btn-sm btn-light border" (click)="moveNestedBlockDown(subsubIdx, ci2, col)" [class.invisible]="subsubIdx === col.length - 1" title="Move Down">
+              <i class="fa fa-arrow-down"></i>
+            </button>
+            <button class="btn btn-sm btn-danger border" (click)="removeNestedBlock(subsubIdx, ci2, col)" title="Remove">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+
+          <!-- Block Content -->
+          <div class="mt-4">
+            <ng-container [ngSwitch]="subsub.type">
+              <ng-container *ngSwitchCase="'text'">
+                <quill-editor [(ngModel)]="subsub.data" [style]="{height: '60px'}"></quill-editor>
+              </ng-container>
+              <ng-container *ngSwitchCase="'image'">
+                <input type="file" accept="image/*" (change)="onImageChange(parentIndex, $event)" />
+                <img *ngIf="subsub.data" [src]="subsub.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+              </ng-container>
+              <ng-container *ngSwitchCase="'video'">
+                <input type="text" class="form-control" placeholder="Paste video URL" [(ngModel)]="subsub.data" />
+                <div *ngIf="subsub.data" class="mt-2">
+                  <iframe [src]="subsub.data | safeUrl" width="120" height="60" frameborder="0" allowfullscreen></iframe>
+                </div>
+              </ng-container>
+              <ng-container *ngSwitchCase="'single-column'">
+                <ng-container *ngTemplateOutlet="singleColumnRecursive; context: {sub: subsub, parentIndex: parentIndex, parentSubIdx: parentSubIdx}"></ng-container>
+              </ng-container>
+              <ng-container *ngSwitchCase="'multi-column'">
+                <ng-container *ngTemplateOutlet="multiColumnRecursive; context: {sub: subsub, parentIndex: parentIndex, parentSubIdx: parentSubIdx}"></ng-container>
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+      <div class="dropdown mt-2">
+        <button class="btn btn-xs btn-outline-primary dropdown-toggle py-0 px-1" style="font-size: 0.8rem; height: 1.8rem; line-height: 1.2rem;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fa fa-plus"></i> Add Nested Block
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, ci2, 'text', parentSubIdx)">Add Text</a></li>
+          <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, ci2, 'image', parentSubIdx)">Add Image</a></li>
+          <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, ci2, 'video', parentSubIdx)">Add Video</a></li>
+          <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, ci2, 'single-column', parentSubIdx)">Add Single Column</a></li>
+          <li><a class="dropdown-item" (click)="addNestedBlock(parentIndex, ci2, 'multi-column', parentSubIdx)">Add Multi Column</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Style Editor -->
+<app-style-editor
+  [isVisible]="showStyleEditor"
+  [selectedBlock]="selectedBlock"
+  (styleUpdate)="onStyleUpdate($event)"
+  (closeEditor)="closeStyleEditor()"
+></app-style-editor>
