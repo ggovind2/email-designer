@@ -40,12 +40,12 @@ export class EmailDesignerComponent {
     { label: 'Add Video', type: BlockType.Video, icon: 'fa-video' },
     { label: 'Add Single Column', type: BlockType.SingleColumn, icon: 'fa-square' },
     { label: 'Add Multi Column', type: BlockType.MultiColumn, icon: 'fa-columns' }
-  ];
-
-  readonly nestedBlockMenuItems: BlockMenuItem[] = [
+  ];  readonly nestedBlockMenuItems: BlockMenuItem[] = [
     { label: 'Add Text', type: BlockType.Text, icon: 'fa-font' },
     { label: 'Add Image', type: BlockType.Image, icon: 'fa-image' },
-    { label: 'Add Video', type: BlockType.Video, icon: 'fa-video' }
+    { label: 'Add Video', type: BlockType.Video, icon: 'fa-video' },
+    { label: 'Add Single Column', type: BlockType.SingleColumn, icon: 'fa-square' },
+    { label: 'Add Multi Column', type: BlockType.MultiColumn, icon: 'fa-columns' },
   ];
 
   contentBlocks: Block[] = [];
@@ -204,7 +204,8 @@ export class EmailDesignerComponent {
   deleteNestedBlockFromColumn(block: MultiColumnBlock, columnIndex: number, blockIndex: number, event: Event) {
     event.stopPropagation();
     if (block.data[columnIndex]) {
-      block.data[columnIndex].splice(blockIndex, 1);
+      const column = block.data[columnIndex] as Block[];
+      column.splice(blockIndex, 1);
     }
   }
 
@@ -220,16 +221,6 @@ export class EmailDesignerComponent {
       (block.data[columnIndex][blockIndex] as VideoBlock).data = value;
     }
   }
-
-  addNestedBlockToColumn(block: MultiColumnBlock, columnIndex: number, type: BlockType) {
-    const newBlock = this.createBlock(type);
-    if (block.data[columnIndex]) {
-      block.data[columnIndex].push(newBlock);
-    } else {
-      block.data[columnIndex] = [newBlock];
-    }
-  }
-
 
   togglePreview(): void {
     this.showPreview = !this.showPreview;
@@ -367,11 +358,25 @@ export class EmailDesignerComponent {
     if (block.data[blockIndex].type === BlockType.Video) {
       (block.data[blockIndex] as VideoBlock).data = value;
     }
-  }
-
-  addNestedBlock(block: SingleColumnBlock, type: BlockType) {
+  }  addNestedBlock(block: SingleColumnBlock, type: BlockType) {
     const newBlock = this.createBlock(type);
     block.data.push(newBlock);
+  }
+
+  addNestedBlockToSingleColumn(block: SingleColumnBlock, type: BlockType) {
+    if (type === BlockType.SingleColumn || type === BlockType.MultiColumn) {
+      const newBlock = this.createBlock(type);
+      block.data.push(newBlock);
+    }
+  }
+
+  addNestedBlockToColumn(block: MultiColumnBlock, columnIndex: number, type: BlockType) {
+    const newBlock = this.createBlock(type);
+    if (!block.data[columnIndex]) {
+      block.data[columnIndex] = [] as Block[];
+    }
+    const column = block.data[columnIndex] as Block[];
+    column.push(newBlock);
   }
 
   getBlockStyles(block: Block): string {
@@ -425,4 +430,101 @@ export class EmailDesignerComponent {
       }
     });
   }
+
+  onNestedMultiColumnSubBlockTextChange(block: any, nestingIndex: number, columnIndex: number, value: string) {
+    if (block.data[nestingIndex][columnIndex].type === BlockType.Text) {
+      (block.data[nestingIndex][columnIndex] as TextBlock).data = value;
+    }
+  }
+
+  onNestedMultiColumnSubBlockVideoChange(block: any, nestingIndex: number, columnIndex: number, value: string) {
+    if (block.data[nestingIndex][columnIndex].type === BlockType.Video) {
+      (block.data[nestingIndex][columnIndex] as VideoBlock).data = value;
+    }
+  }
+  onNestedMultiColumnSubBlockImageChange(block: any, nestingIndex: number, columnIndex: number, event: { target: { files: FileList | null } }) {
+   if (block.data[nestingIndex][columnIndex].type === BlockType.Image) {
+      this.handleFileInput(event.target.files, (result) => {
+       (block.data[nestingIndex][columnIndex] as ImageBlock).data = result;
+      });
+    }
+  }
+
+  deleteNestedMultiColumnSubBlock(block: MultiColumnBlock, targetColumnIndex: number, blockIndexInColumn: number, event: Event) {
+  event.stopPropagation();
+
+  if (block.data[targetColumnIndex] && Array.isArray(block.data[targetColumnIndex])) {
+    const column: Block[] = block.data[targetColumnIndex]; // Now 'column' is correctly inferred as Block[]
+
+    if (blockIndexInColumn >= 0 && blockIndexInColumn < column.length) {
+      column.splice(blockIndexInColumn, 1); // Delete 1 element at blockIndexInColumn
+    } else {
+      console.warn(`Attempted to delete block at invalid index ${blockIndexInColumn} in column ${targetColumnIndex}. Column length: ${column.length}`);
+    }
+  } else {
+    console.warn(`Attempted to delete from non-existent or invalid column at index ${targetColumnIndex}.`);
+  }
+}
+
+ addNestedMultiColumnSubBlock(block: MultiColumnBlock, targetColumnIndex: number, insertAtIndex: number, type: BlockType) {
+  const newBlock = this.createBlock(type);
+ 
+  if (!block.data[targetColumnIndex]) {
+    block.data[targetColumnIndex] = []; // This initializes a new column as Block[]
+  }
+
+  const column: Block[] = block.data[targetColumnIndex];
+
+  column.splice(insertAtIndex, 0, newBlock);
+
+}
+
+  // Single Column nested block changes
+  onNestedSingleColumnSubBlockTextChange(parentBlock: SingleColumnBlock, blockIndex: number, subBlockIndex: number, value: string) {
+    if (parentBlock.data[blockIndex].type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock.data[blockIndex] as SingleColumnBlock;
+      if (singleColumnBlock.data[subBlockIndex].type === BlockType.Text) {
+        (singleColumnBlock.data[subBlockIndex] as TextBlock).data = value;
+      }
+    }
+  }
+
+  onNestedSingleColumnSubBlockVideoChange(parentBlock: SingleColumnBlock, blockIndex: number, subBlockIndex: number, value: string) {
+    if (parentBlock.data[blockIndex].type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock.data[blockIndex] as SingleColumnBlock;
+      if (singleColumnBlock.data[subBlockIndex].type === BlockType.Video) {
+        (singleColumnBlock.data[subBlockIndex] as VideoBlock).data = value;
+      }
+    }
+  }
+
+  onNestedSingleColumnSubBlockImageChange(parentBlock: SingleColumnBlock, blockIndex: number, subBlockIndex: number, event: { target: { files: FileList | null } }) {
+    if (parentBlock.data[blockIndex].type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock.data[blockIndex] as SingleColumnBlock;
+      this.handleFileInput(event.target.files, (result) => {
+        if (singleColumnBlock.data[subBlockIndex].type === BlockType.Image) {
+          (singleColumnBlock.data[subBlockIndex] as ImageBlock).data = result;
+        }
+      });
+    }
+  }
+
+
+  // Helper methods for nested block manipulation
+  deleteNestedSingleColumnSubBlock(parentBlock: SingleColumnBlock, blockIndex: number, subBlockIndex: number, event: Event) {
+    event.stopPropagation();
+    if (parentBlock.data[blockIndex].type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock.data[blockIndex] as SingleColumnBlock;
+      singleColumnBlock.data.splice(subBlockIndex, 1);
+    }
+  }
+
+  addNestedSingleColumnSubBlock(parentBlock: SingleColumnBlock, blockIndex: number, type: BlockType) {
+    if (parentBlock.data[blockIndex].type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock.data[blockIndex] as SingleColumnBlock;
+      const newBlock = this.createBlock(type);
+      singleColumnBlock.data.push(newBlock);
+    }
+  }
+  
 }

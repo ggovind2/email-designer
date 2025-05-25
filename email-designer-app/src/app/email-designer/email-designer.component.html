@@ -127,10 +127,154 @@
                                     }
                                   }
                                 }
+
+                                @case (BlockType.SingleColumn) {
+                                  @if (nestedBlock.type === BlockType.SingleColumn) {
+                                    <div class="nested-blocks-container border p-2">
+                                      <div cdkDropList [cdkDropListData]="nestedBlock.data" 
+                                        (cdkDropListDropped)="dropNested($event, nestedBlock)">
+                                        @for (subNestedBlock of nestedBlock.data; track subNestedBlock; let k = $index) {
+                                          <div class="nested-block my-2" cdkDrag
+                                            [class.selected-block]="selectedBlock === subNestedBlock"
+                                            [style]="getBlockStyles(subNestedBlock)">
+                                            <!-- Sub-Nested Block Controls -->
+                                            <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                              <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(subNestedBlock, $event)" title="Edit Styles">
+                                                <i class="fa fa-edit"></i>
+                                              </button>
+                                              <button class="btn btn-sm btn-danger border" (click)="deleteNestedSingleColumnSubBlock(nestedBlock, j, k, $event)">
+                                                <i class="fa fa-trash"></i>
+                                              </button>
+                                            </div>
+                                            <!-- Sub-Nested Block Content -->
+                                            <div class="mt-4">
+                                              @switch (subNestedBlock.type) {
+                                                @case (BlockType.Text) {
+                                                  @if (subNestedBlock.type === BlockType.Text) {
+                                                    <quill-editor [(ngModel)]="subNestedBlock.data"
+                                                      (ngModelChange)="onNestedSingleColumnSubBlockTextChange(block, j, k, $event)"
+                                                      [style]="{height: '60px'}">
+                                                    </quill-editor>
+                                                  }
+                                                }
+
+                                                @case (BlockType.Image) {
+                                                  @if (subNestedBlock.type === BlockType.Image) {
+                                                    <input type="file" accept="image/*" 
+                                                      (change)="singleColumnSubBlockImageInput.files && onNestedSingleColumnSubBlockImageChange(block, j, k, { target: { files: singleColumnSubBlockImageInput.files } })"
+                                                      #singleColumnSubBlockImageInput />
+                                                    @if (subNestedBlock.data) {
+                                                      <img [src]="subNestedBlock.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+                                                    }
+                                                  }
+                                                }
+
+                                                @case (BlockType.Video) {
+                                                  @if (subNestedBlock.type === BlockType.Video) {
+                                                    <input type="text" class="form-control" placeholder="Paste video URL" 
+                                                      [(ngModel)]="subNestedBlock.data"
+                                                      (ngModelChange)="onNestedSingleColumnSubBlockVideoChange(block, j, k, $event)" />
+                                                    @if (subNestedBlock.data) {
+                                                      <iframe [src]="subNestedBlock.data | safeUrl" width="240" height="135" 
+                                                        frameborder="0" allowfullscreen></iframe>
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            </div>
+                                          </div>
+                                        }
+                                        <div class="text-center mt-2">
+                                          @for (item of nestedBlockMenuItems; track item) {
+                                            <button class="btn btn-sm btn-outline-secondary me-1" 
+                                              (click)="addNestedSingleColumnSubBlock(nestedBlock, j, item.type)">
+                                              <i class="fas {{item.icon}}"></i> {{item.label}}
+                                            </button>
+                                          }
+                                        </div>
+                                      </div>
+                                    </div>
+                                  }
+                                }
+
+                                @case (BlockType.MultiColumn) {
+                                  @if (nestedBlock.type === BlockType.MultiColumn) {
+                                    <div class="row g-2">
+                                      @for (column of nestedBlock.data; track column; let subColIndex = $index) {
+                                        <div class="col">
+                                          <div class="nested-blocks-container border p-2">
+                                            <div cdkDropList [cdkDropListData]="column"
+                                              (cdkDropListDropped)="dropNestedMultiColumn($event, nestedBlock, subColIndex)">
+                                              @for (subNestedBlock of column; track subNestedBlock; let k = $index) {
+                                                <div class="nested-block my-2" cdkDrag
+                                                  [class.selected-block]="selectedBlock === subNestedBlock"
+                                                  [style]="getBlockStyles(subNestedBlock)">
+                                                  <!-- Sub-Nested Block Controls -->
+                                                  <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                                    <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(subNestedBlock, $event)" title="Edit Styles">
+                                                      <i class="fa fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger border" 
+                                                      (click)="deleteNestedBlockFromColumn(nestedBlock, subColIndex, k, $event)">
+                                                      <i class="fa fa-trash"></i>
+                                                    </button>
+                                                  </div>
+                                                  <!-- Sub-Nested Block Content -->
+                                                  <div class="mt-4">
+                                                    @switch (subNestedBlock.type) {
+                                                      @case (BlockType.Text) {
+                                                        @if (subNestedBlock.type === BlockType.Text) {
+                                                          <quill-editor [(ngModel)]="subNestedBlock.data"
+                                                            (ngModelChange)="onNestedMultiColumnSubBlockTextChange(block, subColIndex, j, $event)"
+                                                            [style]="{height: '60px'}">
+                                                          </quill-editor>
+                                                        }
+                                                      }
+
+                                                      @case (BlockType.Image) {
+                                                        @if (subNestedBlock.type === BlockType.Image) {
+                                                          <input type="file" accept="image/*" 
+                                                            (change)="multiColumnSubBlockImageInput.files && onNestedMultiColumnSubBlockImageChange(block, subColIndex, j, { target: { files: multiColumnSubBlockImageInput.files } })"
+                                                            #multiColumnSubBlockImageInput />
+                                                          @if (subNestedBlock.data) {
+                                                            <img [src]="subNestedBlock.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+                                                          }
+                                                        }
+                                                      }
+
+                                                      @case (BlockType.Video) {
+                                                        @if (subNestedBlock.type === BlockType.Video) {
+                                                          <input type="text" class="form-control" placeholder="Paste video URL" 
+                                                            [(ngModel)]="subNestedBlock.data"
+                                                            (ngModelChange)="onNestedMultiColumnSubBlockVideoChange(block, subColIndex, j, $event)" />
+                                                          @if (subNestedBlock.data) {
+                                                            <iframe [src]="subNestedBlock.data | safeUrl" width="240" height="135" 
+                                                              frameborder="0" allowfullscreen></iframe>
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  </div>
+                                                </div>
+                                              }
+                                              <div class="text-center mt-2">
+                                                @for (item of nestedBlockMenuItems; track item) {
+                                                  <button class="btn btn-sm btn-outline-secondary me-1" 
+                                                    (click)="addNestedBlockToColumn(nestedBlock, subColIndex, item.type)">
+                                                    <i class="fas {{item.icon}}"></i> {{item.label}}
+                                                  </button>
+                                                }
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      }
+                                    </div>
+                                  }
+                                }
                               }
                             </div>
                           }
-                          
                           <!-- Add Nested Block Button -->
                           <div class="text-center mt-2">
                             @for (item of nestedBlockMenuItems; track item) {
@@ -201,11 +345,155 @@
                                           }
                                         }
                                       }
+
+                                      @case (BlockType.SingleColumn) {
+                                        @if (nestedBlock.type === BlockType.SingleColumn) {
+                                          <div class="nested-blocks-container border p-2">
+                                            <div cdkDropList [cdkDropListData]="nestedBlock.data" 
+                                              (cdkDropListDropped)="dropNested($event, nestedBlock)">
+                                              @for (subNestedBlock of nestedBlock.data; track subNestedBlock; let k = $index) {
+                                                <div class="nested-block my-2" cdkDrag
+                                                  [class.selected-block]="selectedBlock === subNestedBlock"
+                                                  [style]="getBlockStyles(subNestedBlock)">
+                                                  <!-- Sub-Nested Block Controls -->
+                                                  <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                                    <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(subNestedBlock, $event)" title="Edit Styles">
+                                                      <i class="fa fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger border" 
+                                                      (click)="deleteNestedSingleColumnSubBlock(nestedBlock, j, k, $event)">
+                                                      <i class="fa fa-trash"></i>
+                                                    </button>
+                                                  </div>
+                                                  <!-- Sub-Nested Block Content -->
+                                                  <div class="mt-4">
+                                                    @switch (subNestedBlock.type) {
+                                                      @case (BlockType.Text) {
+                                                        @if (subNestedBlock.type === BlockType.Text) {
+                                                          <quill-editor [(ngModel)]="subNestedBlock.data"
+                                                            (ngModelChange)="onNestedSingleColumnSubBlockTextChange(nestedBlock, j, k, $event)"
+                                                            [style]="{height: '60px'}">
+                                                          </quill-editor>
+                                                        }
+                                                      }
+
+                                                      @case (BlockType.Image) {
+                                                        @if (subNestedBlock.type === BlockType.Image) {
+                                                          <input type="file" accept="image/*" 
+                                                            (change)="singleColumnSubBlockImageInput.files && onNestedSingleColumnSubBlockImageChange(nestedBlock, j, k, { target: { files: singleColumnSubBlockImageInput.files } })"
+                                                            #singleColumnSubBlockImageInput />
+                                                          @if (subNestedBlock.data) {
+                                                            <img [src]="subNestedBlock.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+                                                          }
+                                                        }
+                                                      }
+
+                                                      @case (BlockType.Video) {
+                                                        @if (subNestedBlock.type === BlockType.Video) {
+                                                          <input type="text" class="form-control" placeholder="Paste video URL" 
+                                                            [(ngModel)]="subNestedBlock.data"
+                                                            (ngModelChange)="onNestedSingleColumnSubBlockVideoChange(nestedBlock, j, k, $event)" />
+                                                          @if (subNestedBlock.data) {
+                                                            <iframe [src]="subNestedBlock.data | safeUrl" width="240" height="135" 
+                                                              frameborder="0" allowfullscreen></iframe>
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  </div>
+                                                </div>
+                                              }
+                                              <div class="text-center mt-2">
+                                                @for (item of nestedBlockMenuItems; track item) {
+                                                  <button class="btn btn-sm btn-outline-secondary me-1" 
+                                                    (click)="addNestedSingleColumnSubBlock(nestedBlock, j, item.type)">
+                                                    <i class="fas {{item.icon}}"></i> {{item.label}}
+                                                  </button>
+                                                }
+                                              </div>
+                                            </div>
+                                          </div>
+                                        }
+                                      }
+
+                                      @case (BlockType.MultiColumn) {
+                                        @if (nestedBlock.type === BlockType.MultiColumn) {
+                                          <div class="row g-2">
+                                            @for (column of nestedBlock.data; track column; let subColIndex = $index) {
+                                              <div class="col">
+                                                <div class="nested-blocks-container border p-2">
+                                                  <div cdkDropList [cdkDropListData]="column"
+                                                    (cdkDropListDropped)="dropNestedMultiColumn($event, nestedBlock, subColIndex)">
+                                                    @for (subNestedBlock of column; track subNestedBlock; let k = $index) {
+                                                      <div class="nested-block my-2" cdkDrag
+                                                        [class.selected-block]="selectedBlock === subNestedBlock"
+                                                        [style]="getBlockStyles(subNestedBlock)">
+                                                        <!-- Sub-Nested Block Controls -->
+                                                        <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                                          <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(subNestedBlock, $event)" title="Edit Styles">
+                                                            <i class="fa fa-edit"></i>
+                                                          </button>
+                                                          <button class="btn btn-sm btn-danger border" 
+                                                            (click)="deleteNestedBlockFromColumn(nestedBlock, subColIndex, k, $event)">
+                                                            <i class="fa fa-trash"></i>
+                                                          </button>
+                                                        </div>
+                                                        <!-- Sub-Nested Block Content -->
+                                                        <div class="mt-4">
+                                                          @switch (subNestedBlock.type) {
+                                                            @case (BlockType.Text) {
+                                                              @if (subNestedBlock.type === BlockType.Text) {
+                                                                <quill-editor [(ngModel)]="subNestedBlock.data"
+                                                                  (ngModelChange)="onNestedMultiColumnSubBlockTextChange(block, colIndex, j, $event)"
+                                                                  [style]="{height: '60px'}">
+                                                                </quill-editor>
+                                                              }
+                                                            }
+
+                                                            @case (BlockType.Image) {
+                                                              @if (subNestedBlock.type === BlockType.Image) {
+                                                                <input type="file" accept="image/*" 
+                                                                  (change)="multiColumnSubBlockImageInput.files && onNestedMultiColumnSubBlockImageChange(block, colIndex, j, { target: { files: multiColumnSubBlockImageInput.files } })"
+                                                                  #multiColumnSubBlockImageInput />
+                                                                @if (subNestedBlock.data) {
+                                                                  <img [src]="subNestedBlock.data" alt="Image" class="img-fluid mt-2" style="max-height:80px;" />
+                                                                }
+                                                              }
+                                                            }
+
+                                                            @case (BlockType.Video) {
+                                                              @if (subNestedBlock.type === BlockType.Video) {
+                                                                <input type="text" class="form-control" placeholder="Paste video URL" 
+                                                                  [(ngModel)]="subNestedBlock.data"
+                                                                  (ngModelChange)="onNestedMultiColumnSubBlockVideoChange(block, colIndex, j, $event)" />
+                                                                @if (subNestedBlock.data) {
+                                                                  <iframe [src]="subNestedBlock.data | safeUrl" width="240" height="135" 
+                                                                    frameborder="0" allowfullscreen></iframe>
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        </div>
+                                                      </div>
+                                                    }
+                                                    <div class="text-center mt-2">
+                                                      @for (item of nestedBlockMenuItems; track item) {
+                                                        <button class="btn btn-sm btn-outline-secondary me-1" 
+                                                          (click)="addNestedBlockToColumn(nestedBlock, subColIndex, item.type)">
+                                                          <i class="fas {{item.icon}}"></i> {{item.label}}
+                                                        </button>
+                                                      }
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            }
+                                          </div>
+                                        }
+                                      }
                                     }
                                   </div>
                                 }
-                                
-                                <!-- Add Nested Block Button -->
                                 <div class="text-center mt-2">
                                   @for (item of nestedBlockMenuItems; track item) {
                                     <button class="btn btn-sm btn-outline-secondary me-1" 
