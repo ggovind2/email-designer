@@ -14,7 +14,6 @@
           @for (block of contentBlocks; track block; let i = $index) {
             <div cdkDrag class="mb-3 position-relative"
               [class.selected-block]="selectedBlock === block"
-              (click)="selectBlock(block)"
               [style]="getBlockStyles(block)">
               <!-- Position Label and Drag Handle -->
               <div class="position-absolute d-flex align-items-center gap-2" style="left: 0; top: 0; z-index: 2;">
@@ -36,6 +35,9 @@
                   [class.invisible]="i === contentBlocks.length - 1" title="Move Down">
                   <i class="fa fa-arrow-down"></i>
                 </button>
+                <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(block, $event)" title="Edit Styles">
+                  <i class="fa fa-edit"></i>
+                </button>
                 <button class="btn btn-sm btn-danger border" (click)="removeBlock(i)" title="Remove">
                   <i class="fa fa-trash"></i>
                 </button>
@@ -52,7 +54,8 @@
                   }
 
                   @case (BlockType.Image) {
-                    @if (block.type === BlockType.Image) {                      <input type="file" accept="image/*" 
+                    @if (block.type === BlockType.Image) {
+                      <input type="file" accept="image/*" 
                         (change)="imageInput.files && onImageChange(i, { target: { files: imageInput.files } })" 
                         #imageInput />
                       @if (block.data) {
@@ -80,11 +83,13 @@
                           @for (nestedBlock of block.data; track nestedBlock; let j = $index) {
                             <div class="nested-block my-2" cdkDrag
                               [class.selected-block]="selectedBlock === nestedBlock"
-                              (click)="selectBlock(nestedBlock, $event)"
                               [style]="getBlockStyles(nestedBlock)">
 
                               <!-- Nested Block Controls -->
                               <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(nestedBlock, $event)" title="Edit Styles">
+                                  <i class="fa fa-edit"></i>
+                                </button>
                                 <button class="btn btn-sm btn-danger border" (click)="deleteNestedBlock(block, j, $event)">
                                   <i class="fa fa-trash"></i>
                                 </button>
@@ -101,7 +106,8 @@
                                 }
 
                                 @case (BlockType.Image) {
-                                  @if (nestedBlock.type === BlockType.Image) {                                    <input type="file" accept="image/*" 
+                                  @if (nestedBlock.type === BlockType.Image) {
+                                    <input type="file" accept="image/*" 
                                       (change)="nestedImageInput.files && onNestedImageChange(block, j, { target: { files: nestedImageInput.files } })"
                                       #nestedImageInput />
                                     @if (nestedBlock.data) {
@@ -150,11 +156,13 @@
                                 @for (nestedBlock of column; track nestedBlock; let j = $index) {
                                   <div class="nested-block my-2" cdkDrag
                                     [class.selected-block]="selectedBlock === nestedBlock"
-                                    (click)="selectBlock(nestedBlock, $event)"
                                     [style]="getBlockStyles(nestedBlock)">
 
                                     <!-- Nested Block Controls -->
                                     <div class="btn-group position-absolute" style="right: 0; top: 0; z-index: 2;">
+                                      <button class="btn btn-sm btn-primary border" (click)="showStyleEditorForBlock(nestedBlock, $event)" title="Edit Styles">
+                                        <i class="fa fa-edit"></i>
+                                      </button>
                                       <button class="btn btn-sm btn-danger border" 
                                         (click)="deleteNestedBlockFromColumn(block, colIndex, j, $event)">
                                         <i class="fa fa-trash"></i>
@@ -172,7 +180,8 @@
                                       }
 
                                       @case (BlockType.Image) {
-                                        @if (nestedBlock.type === BlockType.Image) {                                          <input type="file" accept="image/*" 
+                                        @if (nestedBlock.type === BlockType.Image) {
+                                          <input type="file" accept="image/*" 
                                             (change)="nestedMultiColumnImageInput.files && onNestedMultiColumnImageChange(block, colIndex, j, { target: { files: nestedMultiColumnImageInput.files } })"
                                             #nestedMultiColumnImageInput />
                                           @if (nestedBlock.data) {
@@ -237,7 +246,7 @@
         <h4>Preview</h4>
       </div>
       <div class="border rounded p-3">
-        <!-- Preview content -->
+        <div [innerHTML]="generatePreview()"></div>
       </div>
     </div>
   }

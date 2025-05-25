@@ -251,6 +251,12 @@ export class EmailDesignerComponent {
     this.showStyleEditor = true;
   }
 
+  showStyleEditorForBlock(block: Block, event: Event): void {
+    event.stopPropagation(); // Prevent click from bubbling
+    this.selectedBlock = block;
+    this.showStyleEditor = true;
+  }
+
   onStyleUpdate(event: { property: keyof BlockStyle; value: any }): void {
     if (this.selectedBlock?.styles) {
       this.selectedBlock.styles[event.property] = event.value;
@@ -368,8 +374,8 @@ export class EmailDesignerComponent {
     block.data.push(newBlock);
   }
 
-  getBlockStyles(block: Block): any {
-    return {
+  getBlockStyles(block: Block): string {
+    const styles = {
       padding: (block.styles?.padding ?? 16) + 'px',
       backgroundColor: block.styles?.backgroundColor ?? '#ffffff',
       width: (block.styles?.width ?? 100) + '%',
@@ -378,6 +384,11 @@ export class EmailDesignerComponent {
         `${block.styles?.borderWidth ?? 1}px ${block.styles?.borderType ?? 'solid'} ${block.styles?.borderColor ?? '#dee2e6'}`,
       borderRadius: (block.styles?.borderRadius ?? 0) + 'px'
     };
+
+    // Convert styles object to CSS string
+    return Object.entries(styles)
+      .map(([key, value]) => `${key.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${value}`)
+      .join('; ');
   }
 
   // Helper method to handle file input safely
