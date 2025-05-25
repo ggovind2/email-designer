@@ -6,6 +6,15 @@ import { CommonModule } from '@angular/common';
 import { QuillEditorComponent, QuillModule } from 'ngx-quill';
 import { DomSanitizer } from '@angular/platform-browser';
 import { StyleEditorComponent } from './style-editor/style-editor.component';
+import { Block, TextBlock, ImageBlock, VideoBlock, SingleColumnBlock, MultiColumnBlock } from './models/block.interface';
+import { BlockType } from './models/block-type.enum';
+import { BlockStyle } from './models/block-style.interface';
+
+interface BlockMenuItem {
+  label: string;
+  type: BlockType;
+  icon?: string;
+}
 
 @Component({
   selector: 'app-email-designer',
@@ -25,354 +34,204 @@ import { StyleEditorComponent } from './style-editor/style-editor.component';
   styleUrls: ['./email-designer.component.css']
 })
 export class EmailDesignerComponent {
-  contentBlocks: Array<{ 
-    type: string; 
-    data?: any;
-    styles?: {
-      padding?: number;
-      backgroundColor?: string;
-      color?: string;
-      fontSize?: number;
-      width?: number;
-      textAlign?: string;
-    }
-  }> = [];
+  readonly mainBlockMenuItems: BlockMenuItem[] = [
+    { label: 'Add Text', type: BlockType.Text, icon: 'fa-font' },
+    { label: 'Add Image', type: BlockType.Image, icon: 'fa-image' },
+    { label: 'Add Video', type: BlockType.Video, icon: 'fa-video' },
+    { label: 'Add Single Column', type: BlockType.SingleColumn, icon: 'fa-square' },
+    { label: 'Add Multi Column', type: BlockType.MultiColumn, icon: 'fa-columns' }
+  ];
+
+  readonly nestedBlockMenuItems: BlockMenuItem[] = [
+    { label: 'Add Text', type: BlockType.Text, icon: 'fa-font' },
+    { label: 'Add Image', type: BlockType.Image, icon: 'fa-image' },
+    { label: 'Add Video', type: BlockType.Video, icon: 'fa-video' }
+  ];
+
+  contentBlocks: Block[] = [];
   showPreview = false;
   showStyleEditor = false;
-  selectedBlock: any = null;
+  selectedBlock: Block | null = null;
+  BlockType = BlockType; // Make enum available to template
 
   constructor(private sanitizer: DomSanitizer) {}
 
-  addBlock(type: string = 'text') {
-    let block: any;
+  private createDefaultStyles(): BlockStyle {
+    return {
+      padding: 16,
+      backgroundColor: '#ffffff',
+      width: 100,
+      textAlign: 'left',
+      borderType: 'transparent',
+      borderWidth: 1,
+      borderColor: '#dee2e6',
+      borderRadius: 0
+    };
+  }
+
+  private createBlock(type: BlockType): Block {
+    const defaultStyles = this.createDefaultStyles();
+
     switch (type) {
-      case 'text':
-        block = { 
-          type: 'text', 
+      case BlockType.Text:
+        return {
+          type,
           data: '',
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            textAlign: 'left',
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'image':
-        block = { 
-          type: 'image', 
+          styles: { ...defaultStyles }
+        } as TextBlock;
+      case BlockType.Image:
+        return {
+          type,
           data: '',
-          styles: {
-            padding: 16,
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'video':
-        block = { 
-          type: 'video', 
+          styles: { ...defaultStyles }
+        } as ImageBlock;
+      case BlockType.Video:
+        return {
+          type,
           data: '',
-          styles: {
-            padding: 16,
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'single-column':
-        block = { 
-          type: 'single-column', 
+          styles: { ...defaultStyles }
+        } as VideoBlock;
+      case BlockType.SingleColumn:
+        return {
+          type,
           data: [],
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'multi-column':
-        block = { 
-          type: 'multi-column', 
+          styles: { ...defaultStyles }
+        } as SingleColumnBlock;
+      case BlockType.MultiColumn:
+        return {
+          type,
           data: [[], []],
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
+          styles: { ...defaultStyles }
+        } as MultiColumnBlock;
       default:
-        block = { 
-          type: 'text', 
-          data: '',
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            textAlign: 'left',
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
+        return this.createBlock(BlockType.Text);
     }
+  }
+
+  addBlock(type: BlockType = BlockType.Text): Block {
+    const block = this.createBlock(type);
     this.contentBlocks.push(block);
+    return block;
   }
 
-  onTextChange(index: number, value: string) {
-    this.contentBlocks[index].data = value;
-  }
-
-  onImageChange(index: number, event: any) {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        this.contentBlocks[index].data = e.target.result;
-      };
-      reader.readAsDataURL(file);
+  onTextChange(index: number, value: string): void {
+    const block = this.contentBlocks[index];
+    if (block?.type === BlockType.Text) {
+      (block as TextBlock).data = value;
     }
   }
 
-  onVideoChange(index: number, event: any) {
-    if (typeof event === 'string') {
-      this.contentBlocks[index].data = event;
-    } else if (event && event.target && typeof event.target.value === 'string') {
-      this.contentBlocks[index].data = event.target.value;
-    }
-  }
-  removeBlock(index: number, arr: any[] = this.contentBlocks) {
-    if (arr === this.contentBlocks) {
-      this.contentBlocks.splice(index, 1);
-    } else {
-      arr.splice(index, 1);
+
+  onVideoChange(index: number, event: string | { target: { value: string } }): void {
+    const block = this.contentBlocks[index];
+    if (block?.type === BlockType.Video) {
+      if (typeof event === 'string') {
+        (block as VideoBlock).data = event;
+      } else if (event?.target?.value) {
+        (block as VideoBlock).data = event.target.value;
+      }
     }
   }
 
-  moveBlockUp(index: number, arr: any[] = this.contentBlocks) {
+  removeBlock(index: number, blocks: Block[] = this.contentBlocks): void {
+    blocks.splice(index, 1);
+  }
+
+  moveBlockUp(index: number, blocks: Block[] = this.contentBlocks): void {
     if (index > 0) {
-      const temp = arr[index];
-      arr[index] = arr[index - 1];
-      arr[index - 1] = temp;
+      const temp = blocks[index];
+      blocks[index] = blocks[index - 1];
+      blocks[index - 1] = temp;
     }
   }
 
-  moveBlockDown(index: number, arr: any[] = this.contentBlocks) {
-    if (index < arr.length - 1) {
-      const temp = arr[index];
-      arr[index] = arr[index + 1];
-      arr[index + 1] = temp;
+  moveBlockDown(index: number, blocks: Block[] = this.contentBlocks): void {
+    if (index < blocks.length - 1) {
+      const temp = blocks[index];
+      blocks[index] = blocks[index + 1];
+      blocks[index + 1] = temp;
     }
   }
-  drop(event: CdkDragDrop<any[]>) {
+
+  drop(event: CdkDragDrop<Block[]>): void {
     if (!event || typeof event.previousIndex !== 'number' || typeof event.currentIndex !== 'number') {
       return;
     }
 
-    // Get the container element to determine which list is being manipulated
     const container = event.container.element.nativeElement;
-    
     if (container.classList.contains('nested-drop-list')) {
-      // Handle nested block drops
       const parentElement = container.closest('[data-block-index]');
-      if (parentElement) {        const blockIndex = parseInt(parentElement.getAttribute('data-block-index') ?? '-1');
+      if (parentElement) {
+        const blockIndex = parseInt(parentElement.getAttribute('data-block-index') ?? '-1');
         const columnIndex = parseInt(parentElement.getAttribute('data-column-index') ?? '-1');
         
-        if (columnIndex >= 0) {
-          // Multi-column nested blocks
-          moveItemInArray(this.contentBlocks[blockIndex].data[columnIndex], event.previousIndex, event.currentIndex);
-        } else {
-          // Single-column nested blocks
-          moveItemInArray(this.contentBlocks[blockIndex].data, event.previousIndex, event.currentIndex);
+        if (blockIndex !== -1) {
+          const parentBlock = this.contentBlocks[blockIndex];
+          if (columnIndex >= 0 && parentBlock.type === BlockType.MultiColumn) {
+            const multiColumnBlock = parentBlock as MultiColumnBlock;
+            moveItemInArray(multiColumnBlock.data[columnIndex], event.previousIndex, event.currentIndex);
+          } else if (parentBlock.type === BlockType.SingleColumn) {
+            const singleColumnBlock = parentBlock as SingleColumnBlock;
+            moveItemInArray(singleColumnBlock.data, event.previousIndex, event.currentIndex);
+          }
         }
       }
     } else {
-      // Handle top-level blocks
       moveItemInArray(this.contentBlocks, event.previousIndex, event.currentIndex);
     }
   }
 
-  addNestedBlock(parentIndex: number, colIndex?: number, type: string = 'text', subIdx?: number, subSubIdx?: number) {
-    let block: any;
-    switch (type) {
-      case 'text':
-        block = { 
-          type: 'text', 
-          data: '',
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            textAlign: 'left',
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'image':
-        block = { 
-          type: 'image', 
-          data: '',
-          styles: {
-            padding: 16,
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'video':
-        block = { 
-          type: 'video', 
-          data: '',
-          styles: {
-            padding: 16,
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'single-column':
-        block = { 
-          type: 'single-column', 
-          data: [],
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      case 'multi-column':
-        block = { 
-          type: 'multi-column', 
-          data: [[], []],
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
-        break;
-      default:
-        block = { 
-          type: 'text', 
-          data: '',
-          styles: {
-            padding: 16,
-            backgroundColor: '#ffffff',
-            width: 100,
-            textAlign: 'left',
-            borderType: 'transparent',
-            borderWidth: 1,
-            borderColor: '#dee2e6',
-            borderRadius: 0
-          }
-        };
+  dropNested(event: CdkDragDrop<Block[]>, parentBlock: Block, colIndex?: number): void {
+    if (!event || typeof event.previousIndex !== 'number' || typeof event.currentIndex !== 'number') {
+      return;
     }
 
-    // Deep nesting logic
-    if (typeof subSubIdx === 'number' && typeof subIdx === 'number') {
-      // 3rd level nesting (e.g., inside subsub of sub of parent)
-      const sub = this.contentBlocks[parentIndex].data[subIdx];
-      if (sub.type === 'single-column') {
-        sub.data[subSubIdx].data = sub.data[subSubIdx].data || [];
-        sub.data[subSubIdx].data.push(block);
-      } else if (sub.type === 'multi-column' && typeof colIndex === 'number') {
-        sub.data[subSubIdx] = sub.data[subSubIdx] || [];
-        sub.data[subSubIdx][colIndex] = sub.data[subSubIdx][colIndex] || [];
-        sub.data[subSubIdx][colIndex].push(block);
-      }
-    } else if (typeof subIdx === 'number') {
-      // 2nd level nesting (e.g., inside sub of parent)
-      const sub = this.contentBlocks[parentIndex].data[subIdx];
-      if (sub.type === 'single-column') {
-        if (!Array.isArray(sub.data)) {
-          sub.data = [];
-        }
-        sub.data.push(block);
-      } else if (sub.type === 'multi-column' && typeof colIndex === 'number') {
-        if (!Array.isArray(sub.data)) {
-          sub.data = [[], []];
-        }
-        if (!Array.isArray(sub.data[colIndex])) {
-          sub.data[colIndex] = [];
-        }
-        sub.data[colIndex].push(block);
-      }
-    } else if (typeof colIndex === 'number') {
-      // 1st level multi-column
-      if (!Array.isArray(this.contentBlocks[parentIndex].data)) {
-        this.contentBlocks[parentIndex].data = [[], []];
-      }
-      if (!Array.isArray(this.contentBlocks[parentIndex].data[colIndex])) {
-        this.contentBlocks[parentIndex].data[colIndex] = [];
-      }
-      this.contentBlocks[parentIndex].data[colIndex].push(block);
+    if (colIndex !== undefined && parentBlock.type === BlockType.MultiColumn) {
+      const multiColumnBlock = parentBlock as MultiColumnBlock;
+      moveItemInArray(multiColumnBlock.data[colIndex], event.previousIndex, event.currentIndex);
+    } else if (parentBlock.type === BlockType.SingleColumn) {
+      const singleColumnBlock = parentBlock as SingleColumnBlock;
+      moveItemInArray(singleColumnBlock.data, event.previousIndex, event.currentIndex);
+    }
+  }
+
+  dropNestedMultiColumn(event: CdkDragDrop<Block[]>, block: MultiColumnBlock, columnIndex: number) {
+    if (event.previousContainer === event.container) {
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+    }
+  }
+
+  deleteNestedBlockFromColumn(block: MultiColumnBlock, columnIndex: number, blockIndex: number, event: Event) {
+    event.stopPropagation();
+    if (block.data[columnIndex]) {
+      block.data[columnIndex].splice(blockIndex, 1);
+    }
+  }
+
+  onNestedMultiColumnTextChange(block: MultiColumnBlock, columnIndex: number, blockIndex: number, value: string) {
+    if (block.data[columnIndex][blockIndex].type === BlockType.Text) {
+      (block.data[columnIndex][blockIndex] as TextBlock).data = value;
+    }
+  }
+
+
+  onNestedMultiColumnVideoChange(block: MultiColumnBlock, columnIndex: number, blockIndex: number, value: string) {
+    if (block.data[columnIndex][blockIndex].type === BlockType.Video) {
+      (block.data[columnIndex][blockIndex] as VideoBlock).data = value;
+    }
+  }
+
+  addNestedBlockToColumn(block: MultiColumnBlock, columnIndex: number, type: BlockType) {
+    const newBlock = this.createBlock(type);
+    if (block.data[columnIndex]) {
+      block.data[columnIndex].push(newBlock);
     } else {
-      // 1st level single-column
-      if (!Array.isArray(this.contentBlocks[parentIndex].data)) {
-        this.contentBlocks[parentIndex].data = [];
-      }
-      this.contentBlocks[parentIndex].data.push(block);
-    }
-  }
-  moveNestedBlockUp(index: number, parentIndex: number, arr: any[]): void {
-    if (index > 0) {
-      const temp = arr[index];
-      arr[index] = arr[index - 1];
-      arr[index - 1] = temp;
+      block.data[columnIndex] = [newBlock];
     }
   }
 
-  moveNestedBlockDown(index: number, parentIndex: number, arr: any[]): void {
-    if (index < arr.length - 1) {
-      const temp = arr[index];
-      arr[index] = arr[index + 1];
-      arr[index + 1] = temp;
-    }
-  }
 
-  removeNestedBlock(index: number, parentIndex: number, arr: any[]): void {
-    arr.splice(index, 1);
-  }
-
-  togglePreview() {
+  togglePreview(): void {
     this.showPreview = !this.showPreview;
   }
 
@@ -383,100 +242,93 @@ export class EmailDesignerComponent {
     }
     return this.sanitizer.sanitize(SecurityContext.HTML, html) || '';
   }
-  selectBlock(block: any) {
+
+  selectBlock(block: Block, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.selectedBlock = block;
     this.showStyleEditor = true;
   }
 
-  onStyleUpdate(event: {property: string, value: any}) {
-    if (this.selectedBlock) {
+  onStyleUpdate(event: { property: keyof BlockStyle; value: any }): void {
+    if (this.selectedBlock?.styles) {
       this.selectedBlock.styles[event.property] = event.value;
     }
   }
 
-  closeStyleEditor() {
+  closeStyleEditor(): void {
     this.showStyleEditor = false;
     this.selectedBlock = null;
   }
 
-  getBlockStyles(block: any): string {
-    if (!block.styles) return '';
-    
-    let styles = '';
-    if (block.styles.padding) styles += `padding: ${block.styles.padding}px; `;
-    if (block.styles.backgroundColor) styles += `background-color: ${block.styles.backgroundColor}; `;
-    if (block.styles.width) styles += `width: ${block.styles.width}%; `;
-    if (block.styles.textAlign) styles += `text-align: ${block.styles.textAlign}; `;
+  // Removed duplicate getBlockStyles(block: Block): string method to resolve duplicate implementation error.
 
-    // Handle border styles
-    if (block.styles.borderType === 'light' || block.styles.borderType === 'solid') {
-      if (block.styles.borderWidth) styles += `border-width: ${block.styles.borderWidth}px; `;
-      if (block.styles.borderColor) styles += `border-color: ${block.styles.borderColor}; `;
-      if (block.styles.borderRadius) styles += `border-radius: ${block.styles.borderRadius}px; `;
-      styles += `border-style: ${block.styles.borderType === 'light' ? 'dashed' : 'solid'}; `;
-    } else {
-      styles += 'border: none; ';
-    }
-
-    return styles;
-  }
-
-  private generateBlockHtml(block: any, nested = false): string {
-    let html = '';
+  private generateBlockHtml(block: Block, nested: boolean = false): string {
     const styles = this.getBlockStyles(block);
+    let html = '';
 
     switch (block.type) {
-      case 'text':
+      case BlockType.Text: {
+        const textBlock = block as TextBlock;
         html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="${styles}">${block.data || ''}</td>
+            <td style="${styles}">${textBlock.data || ''}</td>
           </tr>
         </table>`;
         break;
-      case 'image':
-        if (block.data) {
+      }
+      case BlockType.Image: {
+        const imageBlock = block as ImageBlock;
+        if (imageBlock.data) {
           html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="${styles}">
-                <img src="${block.data}" alt="Image" style="max-width: 100%; display: block;">
+                <img src="${imageBlock.data}" alt="Image" style="max-width: 100%; display: block;">
               </td>
             </tr>
           </table>`;
         }
         break;
-      case 'video':
-        if (block.data) {
+      }
+      case BlockType.Video: {
+        const videoBlock = block as VideoBlock;
+        if (videoBlock.data) {
           html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="${styles}">
-                <iframe src="${block.data}" width="100%" height="${nested ? '200' : '400'}" frameborder="0" allowfullscreen style="display: block;"></iframe>
+                <iframe src="${videoBlock.data}" width="100%" height="${nested ? '200' : '400'}" frameborder="0" allowfullscreen style="display: block;"></iframe>
               </td>
             </tr>
           </table>`;
         }
         break;
-      case 'single-column':
+      }
+      case BlockType.SingleColumn: {
+        const singleColumnBlock = block as SingleColumnBlock;
         html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr><td style="${styles}">`;
-        if (Array.isArray(block.data)) {
+        if (singleColumnBlock.data.length > 0) {
           html += '<table width="100%" cellpadding="0" cellspacing="0" border="0">';
-          for (const nestedBlock of block.data) {
+          for (const nestedBlock of singleColumnBlock.data) {
             html += '<tr><td>' + this.generateBlockHtml(nestedBlock, true) + '</td></tr>';
           }
           html += '</table>';
         }
         html += '</td></tr></table>';
         break;
-      case 'multi-column':
-        if (Array.isArray(block.data)) {
-          const columnCount = block.data.length;
+      }
+      case BlockType.MultiColumn: {
+        const multiColumnBlock = block as MultiColumnBlock;
+        if (multiColumnBlock.data.length > 0) {
+          const columnCount = multiColumnBlock.data.length;
           const columnWidth = Math.floor(100 / columnCount);
           
           html += `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>`;
           
-          for (const column of block.data) {
+          for (const column of multiColumnBlock.data) {
             html += `<td width="${columnWidth}%" style="${styles}">`;
-            if (Array.isArray(column)) {
+            if (column.length > 0) {
               html += '<table width="100%" cellpadding="0" cellspacing="0" border="0">';
               for (const nestedBlock of column) {
                 html += '<tr><td>' + this.generateBlockHtml(nestedBlock, true) + '</td></tr>';
@@ -489,7 +341,77 @@ export class EmailDesignerComponent {
           html += '</tr></table>';
         }
         break;
+      }
     }
     return html;
+  }
+
+  deleteNestedBlock(block: SingleColumnBlock, blockIndex: number, event: Event) {
+    event.stopPropagation();
+    block.data.splice(blockIndex, 1);
+  }
+
+  onNestedTextChange(block: SingleColumnBlock, blockIndex: number, value: string) {
+    if (block.data[blockIndex].type === BlockType.Text) {
+      (block.data[blockIndex] as TextBlock).data = value;
+    }
+  }
+
+  onNestedVideoChange(block: SingleColumnBlock, blockIndex: number, value: string) {
+    if (block.data[blockIndex].type === BlockType.Video) {
+      (block.data[blockIndex] as VideoBlock).data = value;
+    }
+  }
+
+  addNestedBlock(block: SingleColumnBlock, type: BlockType) {
+    const newBlock = this.createBlock(type);
+    block.data.push(newBlock);
+  }
+
+  getBlockStyles(block: Block): any {
+    return {
+      padding: (block.styles?.padding ?? 16) + 'px',
+      backgroundColor: block.styles?.backgroundColor ?? '#ffffff',
+      width: (block.styles?.width ?? 100) + '%',
+      textAlign: block.styles?.textAlign ?? 'left',
+      border: block.styles?.borderType === 'transparent' ? 'none' :
+        `${block.styles?.borderWidth ?? 1}px ${block.styles?.borderType ?? 'solid'} ${block.styles?.borderColor ?? '#dee2e6'}`,
+      borderRadius: (block.styles?.borderRadius ?? 0) + 'px'
+    };
+  }
+
+  // Helper method to handle file input safely
+  private handleFileInput(files: FileList | null, callback: (result: string) => void) {
+    if (files && files[0]) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        callback(e.target.result);
+      };
+      reader.readAsDataURL(files[0]);
+    }
+  }
+
+  onImageChange(blockIndex: number, event: { target: { files: FileList | null } }) {
+    this.handleFileInput(event.target.files, (result) => {
+      if (this.contentBlocks[blockIndex].type === BlockType.Image) {
+        (this.contentBlocks[blockIndex] as ImageBlock).data = result;
+      }
+    });
+  }
+
+  onNestedImageChange(block: SingleColumnBlock, blockIndex: number, event: { target: { files: FileList | null } }) {
+    this.handleFileInput(event.target.files, (result) => {
+      if (block.data[blockIndex].type === BlockType.Image) {
+        (block.data[blockIndex] as ImageBlock).data = result;
+      }
+    });
+  }
+
+  onNestedMultiColumnImageChange(block: MultiColumnBlock, columnIndex: number, blockIndex: number, event: { target: { files: FileList | null } }) {
+    this.handleFileInput(event.target.files, (result) => {
+      if (block.data[columnIndex][blockIndex].type === BlockType.Image) {
+        (block.data[columnIndex][blockIndex] as ImageBlock).data = result;
+      }
+    });
   }
 }

@@ -1,0 +1,419 @@
+import { Component, SecurityContext } from '@angular/core';
+import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag, DragDropModule } from '@angular/cdk/drag-drop';
+import { SafeUrlPipe } from './safe-url.pipe';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { QuillEditorComponent, QuillModule } from 'ngx-quill';
+import { DomSanitizer } from '@angular/platform-browser';
+import { StyleEditorComponent } from './style-editor/style-editor.component';
+import { Block, TextBlock, ImageBlock, VideoBlock, SingleColumnBlock, MultiColumnBlock } from './models/block.interface';
+import { BlockType } from './models/block-type.enum';
+import { BlockStyle } from './models/block-style.interface';
+
+@Component({
+  selector: 'app-email-designer',
+  standalone: true,
+  imports: [
+    CommonModule, 
+    SafeUrlPipe, 
+    FormsModule, 
+    CdkDropList, 
+    CdkDrag, 
+    DragDropModule, 
+    QuillModule, 
+    QuillEditorComponent,
+    StyleEditorComponent
+  ],
+  templateUrl: './email-designer.component.html',
+  styleUrls: ['./email-designer.component.css']
+})
+export class EmailDesignerComponent {
+  contentBlocks: Block[] = [];
+  showPreview = false;
+  showStyleEditor = false;
+  selectedBlock: Block | null = null;
+
+  constructor(private sanitizer: DomSanitizer) {}
+  addBlock(type: BlockType = BlockType.Text) {
+    let block: Block;
+    const defaultStyles: BlockStyle = {
+      padding: 16,
+      backgroundColor: '#ffffff',
+      width: 100,
+      textAlign: 'left',
+      borderType: 'transparent',
+      borderWidth: 1,
+      borderColor: '#dee2e6',
+      borderRadius: 0
+    };
+
+    switch (type) {
+      case BlockType.Text:
+        block = {
+          type: BlockType.Text,
+          data: '',
+          styles: { ...defaultStyles }
+        } as TextBlock;
+        break;
+      case BlockType.Image:
+        block = {
+          type: BlockType.Image,
+          data: '',
+          styles: { ...defaultStyles }
+        } as ImageBlock;
+        break;
+      case BlockType.Video:
+        block = {
+          type: BlockType.Video,
+          data: '',
+          styles: { ...defaultStyles }
+        } as VideoBlock;
+        break;
+      case BlockType.SingleColumn:
+        block = {
+          type: BlockType.SingleColumn,
+          data: [],
+          styles: { ...defaultStyles }
+        } as SingleColumnBlock;
+        break;
+      case BlockType.MultiColumn:
+        block = {
+          type: BlockType.MultiColumn,
+          data: [[], []],
+          styles: { ...defaultStyles }
+        } as MultiColumnBlock;
+        break;
+      default:
+        block = {
+          type: BlockType.Text,
+          data: '',
+          styles: { ...defaultStyles }
+        } as TextBlock;
+    }
+    this.contentBlocks.push(block);
+  }
+
+  onTextChange(index: number, value: string) {
+    const block = this.contentBlocks[index];
+    if (block.type === BlockType.Text) {
+      block.data = value;
+    }
+  }
+
+  onImageChange(index: number, event: { target: { files: FileList } }) {
+    const block = this.contentBlocks[index];
+    if (block.type === BlockType.Image) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e: ProgressEvent<FileReader>) => {
+          if (block.type === BlockType.Image && e.target?.result) {
+            block.data = e.target.result.toString();
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }
+
+  onVideoChange(index: number, event: string | { target: { value: string } }) {
+    const block = this.contentBlocks[index];
+    if (block.type === BlockType.Video) {
+      if (typeof event === 'string') {
+        block.data = event;
+      } else if (event?.target?.value) {
+        block.data = event.target.value;
+      }
+    }
+  }
+  removeBlock(index: number, arr: Block[] = this.contentBlocks) {
+    arr.splice(index, 1);
+  }
+
+  moveBlockUp(index: number, arr: Block[] = this.contentBlocks) {
+    if (index > 0) {
+      const temp = arr[index];
+      arr[index] = arr[index - 1];
+      arr[index - 1] = temp;
+    }
+  }
+
+  moveBlockDown(index: number, arr: Block[] = this.contentBlocks) {
+    if (index < arr.length - 1) {
+      const temp = arr[index];
+      arr[index] = arr[index + 1];
+      arr[index + 1] = temp;
+    }
+  }
+  drop(event: CdkDragDrop<Block[]>) {
+    if (!event || typeof event.previousIndex !== 'number' || typeof event.currentIndex !== 'number') {
+      return;
+    }
+
+    // Get the container element to determine which list is being manipulated
+    const container = event.container.element.nativeElement;
+    
+    if (container.classList.contains('nested-drop-list')) {
+      // Handle nested block drops
+      const parentElement = container.closest('[data-block-index]');
+      if (parentElement) {
+        const blockIndex = parseInt(parentElement.getAttribute('data-block-index') ?? '-1');
+        const columnIndex = parseInt(parentElement.getAttribute('data-column-index') ?? '-1');
+        
+        if (blockIndex === -1) return;
+        
+        const parentBlock = this.contentBlocks[blockIndex];
+        
+        if (columnIndex >= 0 && parentBlock.type === BlockType.MultiColumn && Array.isArray(parentBlock.data[columnIndex])) {
+          // Multi-column nested blocks
+          moveItemInArray(parentBlock.data[columnIndex], event.previousIndex, event.currentIndex);
+        } else if (parentBlock.type === BlockType.SingleColumn) {
+          // Single-column nested blocks
+          moveItemInArray(parentBlock.data, event.previousIndex, event.currentIndex);
+        }
+      }
+    } else {
+      // Handle top-level blocks
+      moveItemInArray(this.contentBlocks, event.previousIndex, event.currentIndex);
+    }
+  }  addNestedBlock(parentIndex: number, type: BlockType = BlockType.Text, colIndex?: number): void {
+    const block = this.addBlock(type);
+    const parentBlock = this.contentBlocks[parentIndex];
+
+    let block: Block;
+    switch (type) {
+      case BlockType.Text:
+        block = {
+          type: BlockType.Text,
+          data: '',
+          styles: { ...defaultStyles }
+        } as TextBlock;
+        break;
+      case BlockType.Image:
+        block = {
+          type: BlockType.Image,
+          data: '',
+          styles: { ...defaultStyles }
+        } as ImageBlock;
+        break;
+      case BlockType.Video:
+        block = {
+          type: BlockType.Video,
+          data: '',
+          styles: { ...defaultStyles }
+        } as VideoBlock;
+        break;
+      case BlockType.SingleColumn:
+        block = {
+          type: BlockType.SingleColumn,
+          data: [],
+          styles: { ...defaultStyles }
+        } as SingleColumnBlock;
+        break;
+      case BlockType.MultiColumn:
+        block = {
+          type: BlockType.MultiColumn,
+          data: [[], []],
+          styles: { ...defaultStyles }
+        } as MultiColumnBlock;
+        break;
+      default:
+        block = {
+          type: BlockType.Text,
+          data: '',
+          styles: { ...defaultStyles }
+        } as TextBlock;
+    }
+
+    const getParentBlock = (): SingleColumnBlock | MultiColumnBlock | undefined => {
+      const parent = this.contentBlocks[parentIndex];
+      if (parent.type === BlockType.SingleColumn || parent.type === BlockType.MultiColumn) {
+        return parent;
+      }
+      return undefined;
+    };
+
+    const insertIntoSingleColumn = (container: SingleColumnBlock) => {
+      container.data.push(block);
+    };
+
+    const insertIntoMultiColumn = (container: MultiColumnBlock, columnIndex: number) => {
+      if (!Array.isArray(container.data[columnIndex])) {
+        container.data[columnIndex] = [];
+      }
+      container.data[columnIndex].push(block);
+    };
+
+    const parentBlock = getParentBlock();
+    if (!parentBlock) return;
+
+    if (typeof subSubIdx === 'number' && typeof subIdx === 'number') {
+      // 3rd level nesting
+      if (parentBlock.type === BlockType.SingleColumn) {
+        const subBlock = parentBlock.data[subIdx];
+        if (subBlock.type === BlockType.SingleColumn) {
+          insertIntoSingleColumn(subBlock);
+        } else if (subBlock.type === BlockType.MultiColumn && typeof colIndex === 'number') {
+          insertIntoMultiColumn(subBlock, colIndex);
+        }
+      }
+    } else if (typeof subIdx === 'number') {
+      // 2nd level nesting
+      if (parentBlock.type === BlockType.SingleColumn) {
+        const subBlock = parentBlock.data[subIdx];
+        if (subBlock.type === BlockType.SingleColumn) {
+          insertIntoSingleColumn(subBlock);
+        } else if (subBlock.type === BlockType.MultiColumn && typeof colIndex === 'number') {
+          insertIntoMultiColumn(subBlock, colIndex);
+        }
+      }
+    } else if (typeof colIndex === 'number' && parentBlock.type === BlockType.MultiColumn) {
+      // 1st level multi-column
+      insertIntoMultiColumn(parentBlock, colIndex);
+    } else if (parentBlock.type === BlockType.SingleColumn) {
+      // 1st level single-column
+      insertIntoSingleColumn(parentBlock);
+    }
+  }
+  }
+  moveNestedBlockUp(index: number, parentIndex: number, arr: Block[]): void {
+    if (index > 0) {
+      const temp = arr[index];
+      arr[index] = arr[index - 1];
+      arr[index - 1] = temp;
+    }
+  }
+
+  moveNestedBlockDown(index: number, parentIndex: number, arr: Block[]): void {
+    if (index < arr.length - 1) {
+      const temp = arr[index];
+      arr[index] = arr[index + 1];
+      arr[index + 1] = temp;
+    }
+  }
+
+  removeNestedBlock(index: number, parentIndex: number, arr: Block[]): void {
+    arr.splice(index, 1);
+  }
+
+  togglePreview() {
+    this.showPreview = !this.showPreview;
+  }
+
+  generatePreview(): string {
+    let html = '';
+    for (const block of this.contentBlocks) {
+      html += this.generateBlockHtml(block);
+    }
+    return this.sanitizer.sanitize(SecurityContext.HTML, html) || '';
+  }
+  selectBlock(block: Block) {
+    this.selectedBlock = block;
+    this.showStyleEditor = true;
+  }
+
+  onStyleUpdate(event: { property: keyof BlockStyle; value: any }) {
+    if (this.selectedBlock && this.selectedBlock.styles) {
+      this.selectedBlock.styles[event.property] = event.value;
+    }
+  }
+
+  closeStyleEditor() {
+    this.showStyleEditor = false;
+    this.selectedBlock = null;
+  }
+
+  getBlockStyles(block: Block): string {
+    if (!block.styles) return '';
+    
+    let styles = '';
+    if (block.styles.padding) styles += `padding: ${block.styles.padding}px; `;
+    if (block.styles.backgroundColor) styles += `background-color: ${block.styles.backgroundColor}; `;
+    if (block.styles.width) styles += `width: ${block.styles.width}%; `;
+    if (block.styles.textAlign) styles += `text-align: ${block.styles.textAlign}; `;
+
+    // Handle border styles
+    if (block.styles.borderType === 'light' || block.styles.borderType === 'solid') {
+      if (block.styles.borderWidth) styles += `border-width: ${block.styles.borderWidth}px; `;
+      if (block.styles.borderColor) styles += `border-color: ${block.styles.borderColor}; `;
+      if (block.styles.borderRadius) styles += `border-radius: ${block.styles.borderRadius}px; `;
+      styles += `border-style: ${block.styles.borderType === 'light' ? 'dashed' : 'solid'}; `;
+    } else {
+      styles += 'border: none; ';
+    }
+
+    return styles;
+  }
+
+  private generateBlockHtml(block: Block, nested = false): string {
+    let html = '';
+    const styles = this.getBlockStyles(block);
+
+    switch (block.type) {
+      case BlockType.Text:
+        html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="${styles}">${block.data || ''}</td>
+          </tr>
+        </table>`;
+        break;
+      case BlockType.Image:
+        if (block.data) {
+          html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="${styles}">
+                <img src="${block.data}" alt="Image" style="max-width: 100%; display: block;">
+              </td>
+            </tr>
+          </table>`;
+        }
+        break;
+      case BlockType.Video:
+        if (block.data) {
+          html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="${styles}">
+                <iframe src="${block.data}" width="100%" height="${nested ? '200' : '400'}" frameborder="0" allowfullscreen style="display: block;"></iframe>
+              </td>
+            </tr>
+          </table>`;
+        }
+        break;
+      case BlockType.SingleColumn:
+        html += `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="${styles}">`;
+        if (block.data && block.data.length > 0) {
+          html += '<table width="100%" cellpadding="0" cellspacing="0" border="0">';
+          for (const nestedBlock of block.data) {
+            html += '<tr><td>' + this.generateBlockHtml(nestedBlock, true) + '</td></tr>';
+          }
+          html += '</table>';
+        }
+        html += '</td></tr></table>';
+        break;
+      case BlockType.MultiColumn:
+        if (block.data && block.data.length > 0) {
+          const columnCount = block.data.length;
+          const columnWidth = Math.floor(100 / columnCount);
+          
+          html += `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>`;
+          
+          for (const column of block.data) {
+            html += `<td width="${columnWidth}%" style="${styles}">`;
+            if (column && column.length > 0) {
+              html += '<table width="100%" cellpadding="0" cellspacing="0" border="0">';
+              for (const nestedBlock of column) {
+                html += '<tr><td>' + this.generateBlockHtml(nestedBlock, true) + '</td></tr>';
+              }
+              html += '</table>';
+            }
+            html += '</td>';
+          }
+          
+          html += '</tr></table>';
+        }
+        break;
+    }
+    return html;
+  }
+}

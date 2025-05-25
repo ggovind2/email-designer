@@ -1,6 +1,8 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Block } from '../models/block.interface';
+import { BlockStyle } from '../models/block-style.interface';
 
 @Component({
   selector: 'app-style-editor',
@@ -12,80 +14,82 @@ import { FormsModule } from '@angular/forms';
         <h5 class="offcanvas-title">Style Editor</h5>
         <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
       </div>
-      <div class="offcanvas-body">
-        <div class="mb-3">
-          <label class="form-label">Padding</label>
-          <div class="input-group">
-            <input type="number" class="form-control" [(ngModel)]="selectedBlock.styles.padding" 
-                   (ngModelChange)="styleChanged('padding', $event)">
-            <span class="input-group-text">px</span>
-          </div>
-        </div>
-        
-        <div class="mb-3">
-          <label class="form-label">Background Color</label>
-          <input type="color" class="form-control form-control-color" 
-                 [(ngModel)]="selectedBlock.styles.backgroundColor"
-                 (ngModelChange)="styleChanged('backgroundColor', $event)">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Width</label>
-          <div class="input-group">
-            <input type="number" class="form-control" [(ngModel)]="selectedBlock.styles.width" 
-                   (ngModelChange)="styleChanged('width', $event)">
-            <span class="input-group-text">%</span>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Text Align</label>
-          <select class="form-select" [(ngModel)]="selectedBlock.styles.textAlign"
-                  (ngModelChange)="styleChanged('textAlign', $event)">
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-            <option value="justify">Justify</option>
-          </select>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Border Type</label>
-          <select class="form-select" [(ngModel)]="selectedBlock.styles.borderType"
-                  (ngModelChange)="onBorderTypeChange($event)">
-            <option value="transparent">Transparent</option>
-            <option value="light">Light</option>
-            <option value="solid">Solid</option>
-          </select>
-        </div>
-
-        <ng-container *ngIf="selectedBlock.styles.borderType === 'light' || selectedBlock.styles.borderType === 'solid'">
+      <ng-container *ngIf="selectedBlock">
+        <div class="offcanvas-body">
           <div class="mb-3">
-            <label class="form-label">Border Width</label>
+            <label class="form-label">Padding</label>
             <div class="input-group">
-              <input type="number" class="form-control" [(ngModel)]="selectedBlock.styles.borderWidth" 
-                     (ngModelChange)="styleChanged('borderWidth', $event)">
+              <input type="number" class="form-control" [ngModel]="selectedBlock.styles?.padding" 
+                     (ngModelChange)="styleChanged('padding', $event)">
               <span class="input-group-text">px</span>
             </div>
           </div>
-
+          
           <div class="mb-3">
-            <label class="form-label">Border Color</label>
+            <label class="form-label">Background Color</label>
             <input type="color" class="form-control form-control-color" 
-                   [(ngModel)]="selectedBlock.styles.borderColor"
-                   (ngModelChange)="styleChanged('borderColor', $event)">
+                   [ngModel]="selectedBlock.styles?.backgroundColor"
+                   (ngModelChange)="styleChanged('backgroundColor', $event)">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Border Radius</label>
+            <label class="form-label">Width</label>
             <div class="input-group">
-              <input type="number" class="form-control" [(ngModel)]="selectedBlock.styles.borderRadius" 
-                     (ngModelChange)="styleChanged('borderRadius', $event)">
-              <span class="input-group-text">px</span>
+              <input type="number" class="form-control" [ngModel]="selectedBlock.styles?.width" 
+                     (ngModelChange)="styleChanged('width', $event)">
+              <span class="input-group-text">%</span>
             </div>
           </div>
-        </ng-container>
-      </div>
+
+          <div class="mb-3">
+            <label class="form-label">Text Align</label>
+            <select class="form-select" [ngModel]="selectedBlock.styles?.textAlign"
+                    (ngModelChange)="styleChanged('textAlign', $event)">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+              <option value="justify">Justify</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Border Type</label>
+            <select class="form-select" [ngModel]="selectedBlock.styles?.borderType"
+                    (ngModelChange)="onBorderTypeChange($event)">
+              <option value="transparent">Transparent</option>
+              <option value="light">Light</option>
+              <option value="solid">Solid</option>
+            </select>
+          </div>
+
+          <ng-container *ngIf="selectedBlock.styles?.borderType === 'light' || selectedBlock.styles?.borderType === 'solid'">
+            <div class="mb-3">
+              <label class="form-label">Border Width</label>
+              <div class="input-group">
+                <input type="number" class="form-control" [ngModel]="selectedBlock.styles?.borderWidth" 
+                       (ngModelChange)="styleChanged('borderWidth', $event)">
+                <span class="input-group-text">px</span>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Border Color</label>
+              <input type="color" class="form-control form-control-color" 
+                     [ngModel]="selectedBlock.styles?.borderColor"
+                     (ngModelChange)="styleChanged('borderColor', $event)">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Border Radius</label>
+              <div class="input-group">
+                <input type="number" class="form-control" [ngModel]="selectedBlock.styles?.borderRadius" 
+                       (ngModelChange)="styleChanged('borderRadius', $event)">
+                <span class="input-group-text">px</span>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </ng-container>
     </div>
   `,
   styles: [`
@@ -103,18 +107,15 @@ import { FormsModule } from '@angular/forms';
 })
 export class StyleEditorComponent {
   @Input() isVisible = false;
-  @Input() selectedBlock: any = { 
-    styles: {
-      borderType: 'transparent',
-      borderWidth: 1,
-      borderColor: '#dee2e6',
-      borderRadius: 0
-    } 
-  };
-  @Output() styleUpdate = new EventEmitter<{property: string, value: any}>();
+  @Input() selectedBlock: Block | null = null;
+  @Output() styleUpdate = new EventEmitter<{property: keyof BlockStyle; value: any}>();
   @Output() closeEditor = new EventEmitter<void>();
 
   onBorderTypeChange(type: string) {
+    if (!this.selectedBlock || !this.selectedBlock.styles) {
+      return;
+    }
+
     this.styleChanged('borderType', type);
     
     if (type === 'light' || type === 'solid') {
@@ -131,8 +132,10 @@ export class StyleEditorComponent {
     }
   }
 
-  styleChanged(property: string, value: any) {
-    this.styleUpdate.emit({ property, value });
+  styleChanged(property: keyof BlockStyle, value: any) {
+    if (this.selectedBlock) {
+      this.styleUpdate.emit({ property, value });
+    }
   }
 
   close() {
